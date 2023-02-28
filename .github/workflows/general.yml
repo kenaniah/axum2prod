@@ -16,6 +16,8 @@ jobs:
           POSTGRES_PASSWORD: password
         ports:
           - 5432:5432
+    env:
+      DATABASE_URL: postgres://postgres:password@localhost:5432/newsletter
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
@@ -26,8 +28,6 @@ jobs:
         run: cargo install sqlx-cli --no-default-features --features postgres,native-tls --locked
       - name: Migrate database
         run: sqlx database setup
-        env:
-          DATABASE_URL: postgres://postgres:password@localhost:5432/newsletter
       - name: Run tests
         run: cargo test
 
@@ -52,6 +52,8 @@ jobs:
           POSTGRES_PASSWORD: password
         ports:
           - 5432:5432
+    env:
+      DATABASE_URL: postgres://postgres:password@localhost:5432/newsletter
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
@@ -64,7 +66,5 @@ jobs:
         run: cargo install sqlx-cli --no-default-features --features postgres,native-tls --locked
       - name: Migrate database
         run: sqlx database setup
-        env:
-          DATABASE_URL: postgres://postgres:password@localhost:5432/newsletter
       - name: Linting
         run: cargo clippy -- -D warnings

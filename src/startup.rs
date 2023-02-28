@@ -1,4 +1,5 @@
 use axum::{
+    extract::{FromRef, State},
     http::StatusCode,
     routing::{get, post, IntoMakeService},
     Router, Server,
@@ -8,8 +9,14 @@ use std::net::TcpListener;
 
 #[derive(Clone)]
 struct AppState {
-    db_pool: sqlx::PgPool,
+    db: sqlx::PgPool,
 }
+
+// impl FromRef<AppState> for sqlx::PgConnection {
+//     fn from_ref(state: &AppState) -> Self {
+//         state.db.acquire().await.unwrap()
+//     }
+// }
 
 pub fn run(
     listener: TcpListener,
