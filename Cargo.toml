@@ -15,7 +15,7 @@ name = "axum2prod"
 [dependencies]
 anyhow = "1.0.69"
 axum = "0.6.9"
-chrono = "0.4.23"
+chrono = { version = "0.4.23", default-features = false, features = ["clock", "iana-time-zone", "js-sys", "std", "wasm-bindgen", "wasmbind", "winapi"] }
 clap = { version = "4.1.7", features = ["derive", "env"] }
 config = "0.13.3"
 hyper = "0.14.24"
