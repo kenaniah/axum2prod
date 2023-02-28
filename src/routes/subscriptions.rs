@@ -1,5 +1,10 @@
-use axum::Form;
-use axum::{http::StatusCode, response::IntoResponse};
+use crate::Error;
+use axum::http::StatusCode;
+use axum::{extract::State, Form};
+use chrono::Utc;
+use uuid::Uuid;
+
+use crate::AppContext;
 
 #[derive(serde::Deserialize)]
 pub struct FormData {
@@ -7,6 +12,21 @@ pub struct FormData {
     email: String,
 }
 
-pub async fn subscribe(Form(_data): Form<FormData>) -> impl IntoResponse {
-    StatusCode::CREATED
+pub async fn subscribe(
+    State(ctx): State<AppContext>,
+    Form(form): Form<FormData>,
+) -> Result<StatusCode, Error> {
+    sqlx::query!(
+        r#"
+        INSERT INTO subscriptions (id, name, email, subscribed_at)
+        VALUES ($1, $2, $3, $4)
+        "#,
+        Uuid::new_v4(),
+        form.name,
+        form.email,
+        Utc::now()
+    )
+    .execute(&ctx.db)
+    .await?;
+    Ok(StatusCode::CREATED)
 }

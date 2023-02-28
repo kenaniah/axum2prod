@@ -3,14 +3,14 @@ use std::net::TcpListener;
 use axum2prod::configuration;
 use sqlx::{Connection, PgConnection};
 
-// Launch our application in the background ~somehow~
+// Launch our application in the background
 async fn spawn_app() -> hyper::Result<String> {
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
     let port = listener.local_addr().unwrap().port();
     let db = configuration::get_config().db().await;
     let server = axum2prod::run(listener, db)?;
     let _ = tokio::spawn(server);
-    // We return the application address to the caller!
+    // We return the application address to the caller
     Ok(format!("http://127.0.0.1:{}", port))
 }
 
