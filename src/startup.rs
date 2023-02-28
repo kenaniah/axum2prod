@@ -6,6 +6,11 @@ use axum::{
 use hyper::{self, server::conn::AddrIncoming};
 use std::net::TcpListener;
 
+#[derive(Clone)]
+struct AppState {
+    db_pool: sqlx::PgPool,
+}
+
 pub fn run(
     listener: TcpListener,
 ) -> Result<Server<AddrIncoming, IntoMakeService<Router>>, hyper::Error> {
