@@ -21,7 +21,7 @@ jobs:
         with:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Install sqlx-cli
-        run: cargo install sqlx-cli --no-default-features --features postgres --locked
+        run: cargo install sqlx-cli --no-default-features --features postgres,native-tls --locked
       - name: Migrate database
         run: sqlx database create && sqlx migrate run
         env:
@@ -57,7 +57,7 @@ jobs:
         with:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - name: Install sqlx-cli
-        run: cargo install sqlx-cli --no-default-features --features postgres --locked
+        run: cargo install sqlx-cli --no-default-features --features postgres,native-tls --locked
       - name: Migrate database
         run: sqlx database create && sqlx migrate run
         env:
