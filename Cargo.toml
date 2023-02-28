@@ -13,6 +13,7 @@ path = "src/main.rs"
 name = "axum2prod"
 
 [dependencies]
+anyhow = "1.0.69"
 axum = "0.6.9"
 clap = { version = "4.1.7", features = ["derive", "env"] }
 config = "0.13.3"

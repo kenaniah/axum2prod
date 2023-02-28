@@ -7,7 +7,8 @@ use sqlx::{Connection, PgConnection};
 async fn spawn_app() -> hyper::Result<String> {
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
     let port = listener.local_addr().unwrap().port();
-    let server = axum2prod::run(listener)?;
+    let db = configuration::get_config().db().await;
+    let server = axum2prod::run(listener, db)?;
     let _ = tokio::spawn(server);
     // We return the application address to the caller!
     Ok(format!("http://127.0.0.1:{}", port))

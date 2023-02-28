@@ -5,6 +5,7 @@ use std::net::TcpListener;
 async fn main() -> hyper::Result<()> {
     let config = get_config();
     let address = format!("127.0.0.1:{}", config.port);
+    //.context("Failed to connect to Postgres.")?;
     let listener = TcpListener::bind(&address).expect(&format!("Failed to bind to {}", &address));
-    run(listener)?.await
+    run(listener, config.db().await)?.await
 }
