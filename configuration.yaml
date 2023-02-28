@@ -1,0 +1,2 @@
+database: postgres://localhost/newsletter
+application_port: 3000

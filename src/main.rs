@@ -1,8 +1,10 @@
-use axum2prod::run;
+use axum2prod::{get_configuration, run};
 use std::net::TcpListener;
 
 #[tokio::main]
 async fn main() -> hyper::Result<()> {
-    let listener = TcpListener::bind("127.0.0.1:3000").expect("Failed to bind to port 3000");
+    let config = get_configuration().expect("Failed to read configuration.");
+    let address = format!("127.0.0.1:{}", config.application_port);
+    let listener = TcpListener::bind(&address).expect(&format!("Failed to bind to {}", &address));
     run(listener)?.await
 }
