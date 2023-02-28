@@ -1,5 +1,8 @@
 use std::net::TcpListener;
 
+use axum2prod::configuration;
+use sqlx::{Connection, PgConnection};
+
 // Launch our application in the background ~somehow~
 async fn spawn_app() -> hyper::Result<String> {
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
@@ -29,6 +32,10 @@ async fn subscribe_returns_a_201_for_valid_form_data() {
     // Arrange
     let app_address = spawn_app().await.expect("Failed to spawn application");
     let client = reqwest::Client::new();
+    let config = configuration::get_configuration().expect("Failed to read configuration.");
+    let mut connection = PgConnection::connect(&config.database_url)
+        .await
+        .expect("Failed to connect to Postgres.");
 
     // Act
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
@@ -42,6 +49,13 @@ async fn subscribe_returns_a_201_for_valid_form_data() {
 
     // Assert
     assert_eq!(201, response.status().as_u16());
+
+    let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
+        .fetch_one(&mut connection)
+        .await
+        .expect("Failed to fetch saved subscription.");
+    assert_eq!(saved.email, "ursula_le_guin@gmail.com");
+    assert_eq!(saved.name, "le guin");
 }
 
 #[tokio::test]

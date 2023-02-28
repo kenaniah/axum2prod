@@ -9,10 +9,23 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres
+        ports:
+          - 5432:5432
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --no-default-features --features postgres --locked
+      - name: Migrate database
+        run: sqlx database create && sqlx migrate run
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/newsletter
       - name: Run tests
         run: cargo test
 
@@ -30,24 +43,24 @@ jobs:
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres
+        ports:
+          - 5432:5432
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --no-default-features --features postgres --locked
+      - name: Migrate database
+        run: sqlx database create && sqlx migrate run
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/newsletter
       - name: Linting
         run: cargo clippy -- -D warnings
-
-  coverage:
-    name: Code coverage
-    runs-on: ubuntu-latest
-    container:
-      image: xd009642/tarpaulin
-      options: --security-opt seccomp=unconfined
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Generate code coverage
-        run: |
-          cargo tarpaulin --verbose --workspace
