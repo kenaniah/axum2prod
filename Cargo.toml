@@ -1,4 +1,5 @@
 [workspace]
 members = [
-  "crates/axum2prod"
+  "crates/axum2prod",
+  "crates/macros"
 ]

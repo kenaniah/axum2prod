@@ -132,6 +132,7 @@ dependencies = [
  "config",
  "hyper",
  "log",
+ "macros",
  "reqwest",
  "rusty-fork",
  "serde",
@@ -1085,6 +1086,14 @@ checksum = "b238e3235c8382b7653c6408ed1b08dd379bdb9fdf990fb0bbae3db2cc0ae963"
 dependencies = [
  "nix",
  "winapi",
+]
+
+[[package]]
+name = "macros"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn",
 ]
 
 [[package]]
