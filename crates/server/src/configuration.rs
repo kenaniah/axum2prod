@@ -70,7 +70,7 @@ impl Config {
             .connect(&url.as_str())
             .await
             .unwrap();
-        sqlx::migrate!("../migrations")
+        sqlx::migrate!("../../migrations")
             .run(&pool)
             .await
             .expect("Failed to migrate the database");
