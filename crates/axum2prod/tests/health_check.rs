@@ -1,12 +1,12 @@
 use std::{future::Future, net::TcpListener, pin::Pin, time::Duration};
 
 use axum2prod::configuration;
-use sqlx::{Connection, PgConnection};
+use sqlx::PgPool;
 
 /// Wrapper for tests to ensure each is run in an isolated environment
 async fn run_test<T>(test: T)
 where
-    T: FnOnce(String) -> Pin<Box<dyn Future<Output = ()> + Send>> + std::panic::UnwindSafe,
+    T: FnOnce(String, PgPool) -> Pin<Box<dyn Future<Output = ()> + Send>> + std::panic::UnwindSafe,
 {
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
     let port = listener.local_addr().unwrap().port();
@@ -20,7 +20,7 @@ where
     let handle = tokio::spawn(server);
 
     // Run the test
-    let task = tokio::spawn(test(address));
+    let task = tokio::spawn(test(address, test_db.pool.clone()));
     let result = task.await;
 
     // Stop the server
@@ -40,7 +40,7 @@ where
 
 #[tokio::test]
 async fn health_check_works() {
-    run_test(|address| {
+    run_test(|address, _db| {
         Box::pin(async move {
             let client = reqwest::Client::new();
             let response = client
@@ -57,14 +57,10 @@ async fn health_check_works() {
 
 #[tokio::test]
 async fn subscribe_returns_a_201_for_valid_form_data() {
-    run_test(|address| {
+    run_test(|address, db| {
         Box::pin(async move {
             // Arrange
             let client = reqwest::Client::new();
-            let config = configuration::get_config();
-            let mut connection = PgConnection::connect(&config.database_url)
-                .await
-                .expect("Failed to connect to Postgres.");
 
             // Act
             let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
@@ -80,7 +76,7 @@ async fn subscribe_returns_a_201_for_valid_form_data() {
             assert_eq!(201, response.status().as_u16());
 
             let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
-                .fetch_one(&mut connection)
+                .fetch_one(&db)
                 .await
                 .expect("Failed to fetch saved subscription.");
             assert_eq!(saved.email, "ursula_le_guin@gmail.com");
@@ -92,7 +88,7 @@ async fn subscribe_returns_a_201_for_valid_form_data() {
 
 #[tokio::test]
 async fn subscribe_returns_a_422_when_data_is_missing() {
-    run_test(|address| {
+    run_test(|address, _db| {
         Box::pin(async move {
             // Arrange
             let client = reqwest::Client::new();

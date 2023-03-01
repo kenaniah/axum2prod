@@ -67,7 +67,7 @@ impl Config {
             .unwrap();
         let pool = PgPoolOptions::new()
             .max_connections(5)
-            .connect(&url.as_str())
+            .connect(url.as_str())
             .await
             .unwrap();
         sqlx::migrate!("../../migrations")
