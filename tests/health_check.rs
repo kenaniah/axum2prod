@@ -1,4 +1,4 @@
-use std::net::TcpListener;
+use std::{future::Future, net::TcpListener, pin::Pin, time::Duration};
 
 use axum2prod::configuration;
 use sqlx::{Connection, PgConnection};
@@ -7,86 +7,125 @@ use sqlx::{Connection, PgConnection};
 async fn spawn_app() -> hyper::Result<String> {
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
     let port = listener.local_addr().unwrap().port();
-    let db = configuration::get_config().db().await;
-    let server = axum2prod::run(listener, db)?;
+    let db = configuration::get_config().test_db().await;
+    let server = axum2prod::run(listener, db.pool.clone())?;
     let _ = tokio::spawn(server);
     // We return the application address to the caller
     Ok(format!("http://127.0.0.1:{}", port))
 }
 
+/// Wrapper for tests to ensure each is run in an isolated environment
+async fn run_test<T>(test: T)
+where
+    T: FnOnce(String) -> Pin<Box<dyn Future<Output = ()> + Send>> + std::panic::UnwindSafe,
+{
+    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
+    let port = listener.local_addr().unwrap().port();
+    let address = format!("http://127.0.0.1:{}", port);
+
+    // Spin up a test database
+    let test_db = configuration::get_config().test_db().await;
+
+    // Spin up the server in the background
+    let server = axum2prod::run(listener, test_db.pool.clone()).unwrap();
+    let _ = tokio::spawn(server);
+
+    // Run the test
+    let result = std::panic::catch_unwind(|| test(address));
+    if let Err(_) = result {
+        std::process::exit(1);
+    }
+
+    // Wait for the spawned task to finish
+    tokio::time::sleep(Duration::from_secs(1)).await;
+}
+
 #[tokio::test]
 async fn health_check_works() {
-    let address = spawn_app().await.expect("Failed to spawn application");
-
-    let client = reqwest::Client::new();
-    let response = client
-        .get(&format!("{}/health_check", &address))
-        .send()
-        .await
-        .expect("Failed to execute request.");
-    assert!(response.status().is_success());
-    assert_eq!(Some(0), response.content_length());
+    run_test(|address| {
+        Box::pin(async move {
+            let client = reqwest::Client::new();
+            let response = client
+                .get(&format!("{}/health_check", &address))
+                .send()
+                .await
+                .expect("Failed to execute request.");
+            assert!(response.status().is_success());
+            assert_eq!(Some(0), response.content_length());
+        })
+    })
+    .await;
 }
 
 #[tokio::test]
 async fn subscribe_returns_a_201_for_valid_form_data() {
-    // Arrange
-    let app_address = spawn_app().await.expect("Failed to spawn application");
-    let client = reqwest::Client::new();
-    let config = configuration::get_config();
-    let mut connection = PgConnection::connect(&config.database_url)
-        .await
-        .expect("Failed to connect to Postgres.");
+    run_test(|address| {
+        Box::pin(async move {
+            // Arrange
+            let app_address = spawn_app().await.expect("Failed to spawn application");
+            let client = reqwest::Client::new();
+            let config = configuration::get_config();
+            let mut connection = PgConnection::connect(&config.database_url)
+                .await
+                .expect("Failed to connect to Postgres.");
 
-    // Act
-    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
-    let response = client
-        .post(&format!("{}/subscriptions", &app_address))
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(body)
-        .send()
-        .await
-        .expect("Failed to execute request.");
+            // Act
+            let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+            let response = client
+                .post(&format!("{}/subscriptions", &app_address))
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .body(body)
+                .send()
+                .await
+                .expect("Failed to execute request.");
 
-    // Assert
-    assert_eq!(201, response.status().as_u16());
+            // Assert
+            assert_eq!(201, response.status().as_u16());
 
-    let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
-        .fetch_one(&mut connection)
-        .await
-        .expect("Failed to fetch saved subscription.");
-    assert_eq!(saved.email, "ursula_le_guin@gmail.com");
-    assert_eq!(saved.name, "le guin");
+            let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
+                .fetch_one(&mut connection)
+                .await
+                .expect("Failed to fetch saved subscription.");
+            assert_eq!(saved.email, "ursula_le_guin@gmail.com");
+            assert_eq!(saved.name, "le guin");
+        })
+    })
+    .await;
 }
 
 #[tokio::test]
 async fn subscribe_returns_a_422_when_data_is_missing() {
-    // Arrange
-    let app_address = spawn_app().await.expect("Failed to spawn application");
-    let client = reqwest::Client::new();
-    let test_cases = vec![
-        ("name=le%20guin", "missing the email"),
-        ("email=ursula_le_guin%40gmail.com", "missing the name"),
-        ("", "missing both name and email"),
-    ];
+    run_test(|address| {
+        Box::pin(async move {
+            // Arrange
+            let app_address = spawn_app().await.expect("Failed to spawn application");
+            let client = reqwest::Client::new();
+            let test_cases = vec![
+                ("name=le%20guin", "missing the email"),
+                ("email=ursula_le_guin%40gmail.com", "missing the name"),
+                ("", "missing both name and email"),
+            ];
 
-    for (invalid_body, error_message) in test_cases {
-        // Act
-        let response = client
-            .post(&format!("{}/subscriptions", &app_address))
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .body(invalid_body)
-            .send()
-            .await
-            .expect("Failed to execute request.");
+            for (invalid_body, error_message) in test_cases {
+                // Act
+                let response = client
+                    .post(&format!("{}/subscriptions", &app_address))
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .body(invalid_body)
+                    .send()
+                    .await
+                    .expect("Failed to execute request.");
 
-        // Assert
-        assert_eq!(
-            422,
-            response.status().as_u16(),
-            // Additional customized error message on test failure
-            "The API did not fail with 400 Bad Request when the payload was {}.",
-            error_message
-        );
-    }
+                // Assert
+                assert_eq!(
+                    422,
+                    response.status().as_u16(),
+                    // Additional customized error message on test failure
+                    "The API did not fail with 400 Bad Request when the payload was {}.",
+                    error_message
+                );
+            }
+        })
+    })
+    .await;
 }
