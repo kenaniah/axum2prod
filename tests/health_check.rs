@@ -28,16 +28,25 @@ where
 
     // Spin up the server in the background
     let server = axum2prod::run(listener, test_db.pool.clone()).unwrap();
-    let _ = tokio::spawn(server);
+    let handle = tokio::spawn(server);
 
     // Run the test
-    let result = std::panic::catch_unwind(|| test(address));
-    if let Err(_) = result {
-        std::process::exit(1);
-    }
+    let task = tokio::spawn(test(address));
+    let result = task.await;
 
-    // Wait for the spawned task to finish
+    // Stop the server
+    handle.abort();
+
+    // Drop the test database
+    drop(test_db);
     tokio::time::sleep(Duration::from_secs(1)).await;
+
+    // Propagate any panics
+    if let Err(err) = result {
+        if err.is_panic() {
+            std::panic::resume_unwind(err.into_panic());
+        }
+    }
 }
 
 #[tokio::test]

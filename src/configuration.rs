@@ -70,6 +70,10 @@ impl Config {
             .connect(&url.as_str())
             .await
             .unwrap();
+        sqlx::migrate!("./migrations")
+            .run(&pool)
+            .await
+            .expect("Failed to migrate the database");
         TestingDatabase::new(pool, db_name)
     }
 }
