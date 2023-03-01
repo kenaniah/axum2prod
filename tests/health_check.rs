@@ -3,17 +3,6 @@ use std::{future::Future, net::TcpListener, pin::Pin, time::Duration};
 use axum2prod::configuration;
 use sqlx::{Connection, PgConnection};
 
-// Launch our application in the background
-async fn spawn_app() -> hyper::Result<String> {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
-    let port = listener.local_addr().unwrap().port();
-    let db = configuration::get_config().test_db().await;
-    let server = axum2prod::run(listener, db.pool.clone())?;
-    let _ = tokio::spawn(server);
-    // We return the application address to the caller
-    Ok(format!("http://127.0.0.1:{}", port))
-}
-
 /// Wrapper for tests to ensure each is run in an isolated environment
 async fn run_test<T>(test: T)
 where
@@ -71,7 +60,6 @@ async fn subscribe_returns_a_201_for_valid_form_data() {
     run_test(|address| {
         Box::pin(async move {
             // Arrange
-            let app_address = spawn_app().await.expect("Failed to spawn application");
             let client = reqwest::Client::new();
             let config = configuration::get_config();
             let mut connection = PgConnection::connect(&config.database_url)
@@ -81,7 +69,7 @@ async fn subscribe_returns_a_201_for_valid_form_data() {
             // Act
             let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
             let response = client
-                .post(&format!("{}/subscriptions", &app_address))
+                .post(&format!("{}/subscriptions", &address))
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .body(body)
                 .send()
@@ -107,7 +95,6 @@ async fn subscribe_returns_a_422_when_data_is_missing() {
     run_test(|address| {
         Box::pin(async move {
             // Arrange
-            let app_address = spawn_app().await.expect("Failed to spawn application");
             let client = reqwest::Client::new();
             let test_cases = vec![
                 ("name=le%20guin", "missing the email"),
@@ -118,7 +105,7 @@ async fn subscribe_returns_a_422_when_data_is_missing() {
             for (invalid_body, error_message) in test_cases {
                 // Act
                 let response = client
-                    .post(&format!("{}/subscriptions", &app_address))
+                    .post(&format!("{}/subscriptions", &address))
                     .header("Content-Type", "application/x-www-form-urlencoded")
                     .body(invalid_body)
                     .send()
