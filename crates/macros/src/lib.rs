@@ -10,13 +10,13 @@ pub fn isolated_test(
     let block = item.block.clone();
     let attrs = item.attrs.clone();
     let vis = item.vis.clone();
-    let sig = item.sig.clone();
+    let sig = item.sig;
     let output = quote::quote! {
 
         #(#attrs)*
         #[tokio::test]
         #vis #sig {
-            axum2prod::test_helpers::run_test(|ctx| {
+            axum2prod::test_helpers::run_test(|ctx: axum2prod::test_helpers::TestContext| {
                 Box::pin(async move {
                     #block
                 })
