@@ -16,7 +16,13 @@ pub async fn subscribe(
     State(ctx): State<AppContext>,
     Form(form): Form<FormData>,
 ) -> Result<StatusCode, Error> {
-    sqlx::query!(
+    tracing::info!(
+        "Adding '{}' '{}' as a new subscriber.",
+        form.email,
+        form.name
+    );
+    tracing::info!("Saving new subscriber details in the database...");
+    match sqlx::query!(
         r#"
         INSERT INTO subscriptions (id, name, email, subscribed_at)
         VALUES ($1, $2, $3, $4)
@@ -27,6 +33,15 @@ pub async fn subscribe(
         Utc::now()
     )
     .execute(&ctx.db)
-    .await?;
-    Ok(StatusCode::CREATED)
+    .await
+    {
+        Ok(_) => {
+            tracing::info!("New subscriber details have been saved");
+            Ok(StatusCode::CREATED)
+        }
+        Err(e) => {
+            tracing::error!("Failed to execute query: {:?}", e);
+            Err(e.into())
+        }
+    }
 }
