@@ -6,6 +6,7 @@ use axum::{
 use hyper::{self, server::conn::AddrIncoming};
 use sqlx::PgPool;
 use std::net::TcpListener;
+use tower_http::trace::TraceLayer; //, trace::TraceRequest, trace::TraceResponse, TraceMiddleware};
 
 pub mod error;
 
@@ -28,6 +29,7 @@ pub fn run(
         .route("/", get(|| async { "Hello, World!" }))
         .route("/health_check", get(|| async { StatusCode::OK }))
         .route("/subscriptions", post(crate::routes::subscribe))
+        .layer(TraceLayer::new_for_http())
         .with_state(app_state);
 
     // return a server instance
