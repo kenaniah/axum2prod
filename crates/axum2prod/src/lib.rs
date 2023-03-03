@@ -3,6 +3,7 @@ extern crate macros;
 pub mod configuration;
 pub mod http;
 pub mod routes;
+pub mod telemetry;
 pub mod test_helpers;
 
 pub use configuration::get_config;

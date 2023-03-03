@@ -153,6 +153,7 @@ dependencies = [
  "config",
  "hyper",
  "macros",
+ "once_cell",
  "reqwest",
  "rusty-fork",
  "serde",
