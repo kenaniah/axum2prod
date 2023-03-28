@@ -1,4 +1,5 @@
 use clap::Parser;
+use secrecy::{ExposeSecret, Secret};
 use sqlx::{postgres::PgPoolOptions, Connection, PgConnection, PgPool};
 use url::Url;
 
@@ -6,7 +7,7 @@ use url::Url;
 pub struct Config {
     /// The connection URL for the application's database
     #[clap(long, env, default_value = "postgresql://localhost/newsletter")]
-    pub database_url: String,
+    pub database_url: Secret<String>,
     /// The port number to run the application on
     #[clap(long, env, default_value = "3000")]
     pub port: u16,
@@ -27,7 +28,7 @@ impl Drop for TestingDatabase {
     fn drop(&mut self) {
         let name = self.db_name.clone();
         tokio::spawn(async move {
-            let mut connection = PgConnection::connect(&get_config().database_url)
+            let mut connection = PgConnection::connect(&get_config().database_url.expose_secret())
                 .await
                 .unwrap();
             sqlx::query(&format!(r#"DROP DATABASE "{}""#, &name))
@@ -43,7 +44,7 @@ impl Config {
     pub async fn db(&self) -> PgPool {
         PgPoolOptions::new()
             .max_connections(20)
-            .connect(&self.database_url)
+            .connect(&self.database_url.expose_secret())
             .await
             .unwrap()
     }
@@ -52,8 +53,10 @@ impl Config {
     ///
     /// The database is created with a random name and dropped when the connection is closed.
     pub async fn test_db(&self) -> TestingDatabase {
-        let mut connection = PgConnection::connect(&self.database_url).await.unwrap();
-        let mut url = Url::parse(&self.database_url).unwrap();
+        let mut connection = PgConnection::connect(&self.database_url.expose_secret())
+            .await
+            .unwrap();
+        let mut url = Url::parse(&self.database_url.expose_secret()).unwrap();
         let db_name: String =
             sqlx::query_scalar("SELECT current_database() || '_' || (random() * 100000)::int")
                 .fetch_one(&mut connection)
